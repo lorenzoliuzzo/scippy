@@ -17,13 +17,35 @@ electric_current = BaseQuantity(0, 0, 0, 0, 1, 0, 0)
 substance_amount = BaseQuantity(0, 0, 0, 0, 0, 1, 0)
 luminous_intensity = BaseQuantity(0, 0, 0, 0, 0, 0, 1)
 
+
 # Define the composed base quantities
 velocity = length / time
 acceleration = velocity / time
+
+momentum = mass * velocity
+impulse = momentum * time
+angular_momentum = momentum * length
+
+angle = length / length
+angular_velocity = angle / time
+angular_acceleration = angular_velocity / time
+
+area = length ** 2
+volume = length ** 3
+density = mass / volume
+
 force = mass * acceleration
 energy = force * length
 power = energy / time
-pressure = force / length ** 2
+pressure = force / area
+torque = force * length
+action = energy * time
+
 electric_charge = electric_current * time
 voltage = power / electric_current
 capacitance = electric_charge / voltage
+resistance = voltage / electric_current
+conductance = electric_current / voltage
+magnetic_flux = voltage * time
+magnetic_flux_density = magnetic_flux / area
+inductance = magnetic_flux / electric_current

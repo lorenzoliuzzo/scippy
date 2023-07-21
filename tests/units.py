@@ -1,6 +1,6 @@
-from physics.measurements import Prefix, Unit
-import physics.measurements.basis as basis
-import physics.measurements.units as units
+from physics import Prefix, Unit
+from physics import basis as basis
+from physics import units as units
 
 
 # Creating a unit

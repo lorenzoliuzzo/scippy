@@ -1,9 +1,3 @@
-# file    scipp/physics/measurements/base_quantity.py
-# author  Lorenzo Liuzzo (lorenzoliuzzo@outlook.com)
-# brief   This file contains the implementation of the BaseQuantity class.
-# date    2023-07-20
-# copyright Copyright (c) 2023
-
 
 class BaseQuantity:
 

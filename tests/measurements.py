@@ -1,5 +1,5 @@
-import physics.measurements.units as units
-from physics.measurements import BaseQuantity, Unit, Prefix, Quantity
+from physics import BaseQuantity, Unit, Prefix, Quantity
+from physics import units as units
 import math
 
 length = BaseQuantity(1, 0, 0, 0, 0, 0, 0)

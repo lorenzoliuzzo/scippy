@@ -1,6 +1,6 @@
 # file: ./basis.py 
-from physics.measurements import BaseQuantity
-from physics.measurements import basis as basis
+from physics import BaseQuantity
+from physics import basis as basis
 
 # Creating a base quantity
 length = BaseQuantity(1, 0, 0, 0, 0, 0, 0)

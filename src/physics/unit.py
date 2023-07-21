@@ -11,7 +11,7 @@ from .prefix import Prefix
 class Unit:
 
 
-    def __init__(self, base, prefix=None, symbol=None):
+    def __init__(self, base, prefix=Prefix(1), symbol=None):
         """
         Construct a Unit object with a BaseQuantity, a Prefix, and a symbol.
 
@@ -25,9 +25,7 @@ class Unit:
         else:
             raise TypeError(f"Unsupported operand type(s) for Unit: '{type(base).__name__}' and 'BaseQuantity'")
         
-        if prefix is None:
-            self.prefix = Prefix(1)
-        elif isinstance(prefix, Prefix):
+        if isinstance(prefix, Prefix):
             self.prefix = prefix
         else:
             raise TypeError(f"Unsupported operand type(s) for Unit: '{type(prefix).__name__}' and 'Prefix'")

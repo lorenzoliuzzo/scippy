@@ -13,7 +13,8 @@ import math
 class Quantity:
     # Class representing a physical quantity with a numerical value and a specific unit.
 
-    def __init__(self, value, unit: Unit):
+
+    def __init__(self, value, unit: Unit = Unit(BaseQuantity(0, 0, 0, 0, 0, 0, 0))):
         """
         Construct a Quantity object with a given numerical value and an associated Unit.
 
@@ -53,6 +54,9 @@ class Quantity:
             raise TypeError(f"Unsupported operands for +: 'Quantity' of base ' {self.unit.base}' and '{type(other).__name__}' of base ' {other.unit.base}'")
 
 
+    __radd__ = __add__
+    
+
     def __sub__(self, other):
         """
         Subtract a Quantity object or a numeric value from the current Quantity object.
@@ -76,11 +80,6 @@ class Quantity:
         else:
             raise TypeError(f"Unsupported operands for -: 'Quantity' of base ' {self.unit.base}' and '{type(other).__name__}' of base ' {other.unit.base}'")
 
-
-
-    def __radd__(self, other):
-        return self.__add__(other)
-
     def __rsub__(self, other):
         return -self.__sub__(other)
     
@@ -101,6 +100,9 @@ class Quantity:
 
         raise ValueError("Unsupported operands for *: 'Quantity' and '{}'".format(type(other).__name__))
     
+    def __rmul__(self, other):
+        return self.__mul__(other)
+    
 
     def __truediv__(self, other):
         """
@@ -116,12 +118,7 @@ class Quantity:
         elif isinstance(other, (int, float)):
             return Quantity(self.value / other, self.unit)
 
-        raise ValueError("Unsupported operands for /: 'Quantity' and '{}'".format(type(other).__name__))
-    
-
-    def __rmul__(self, other):
-        return self.__mul__(other)
-        
+        raise ValueError("Unsupported operands for /: 'Quantity' and '{}'".format(type(other).__name__))     
     
     def __rtruediv__(self, other):
 
@@ -164,7 +161,6 @@ class Quantity:
         
         # Convert the value to the target unit's prefix
         return Quantity(self.value * self.unit.prefix.factor / target_unit.prefix.factor, target_unit)
-
 
 
     # Additional arithmetic operations
@@ -234,7 +230,55 @@ class Quantity:
         raise ValueError("Unsupported operands for ==: 'Quantity' and '{}'".format(type(other).__name__))
     
 
+    def __ne__(self, other):
+        if isinstance(other, Quantity):
+            return self.value != other.value or self.unit != other.unit
+        elif isinstance(other, (int, float)):
+            return self.value != other
+        raise ValueError("Unsupported operands for !=: 'Quantity' and '{}'".format(type(other).__name__))
+    
 
+    def __lt__(self, other):
+        if isinstance(other, Quantity):
+            return self.value < other.value
+        elif isinstance(other, (int, float)):
+            return self.value < other
+        raise ValueError("Unsupported operands for <: 'Quantity' and '{}'".format(type(other).__name__))
+    
 
-# multiply a value and an Unit to get a Quantity(value, unit)
-# def .... 
+    def __le__(self, other):
+        if isinstance(other, Quantity):
+            return self.value <= other.value
+        elif isinstance(other, (int, float)):
+            return self.value <= other
+        raise ValueError("Unsupported operands for <=: 'Quantity' and '{}'".format(type(other).__name__))
+    
+
+    def __gt__(self, other):
+        if isinstance(other, Quantity):
+            return self.value > other.value
+        elif isinstance(other, (int, float)):
+            return self.value > other
+        raise ValueError("Unsupported operands for >: 'Quantity' and '{}'".format(type(other).__name__))
+    
+
+    def __ge__(self, other):
+
+        if isinstance(other, Quantity):
+            return self.value >= other.value
+        elif isinstance(other, (int, float)):
+            return self.value >= other
+        raise ValueError("Unsupported operands for >=: 'Quantity' and '{}'".format(type(other).__name__))
+    
+
+    def __bool__(self):
+        return bool(self.value)
+    
+
+    def __int__(self):
+        return int(self.value)
+    
+
+    def __float__(self):
+        return float(self.value)
+    

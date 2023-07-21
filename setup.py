@@ -29,6 +29,9 @@ with open('README.md', 'r') as f:
 # Define the dependencies, if any
 dependencies = [
     # Add any external dependencies here
+    autograd,
+    matplotlib,
+    numpy
 ]
 
 setup(
