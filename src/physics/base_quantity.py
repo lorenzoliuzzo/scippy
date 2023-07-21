@@ -29,7 +29,7 @@ class BaseQuantity:
     def __repr__(self):
         # Return the string representation of the BaseQuantity.
         return "".join(
-            [f"{unit} " if power == 1 else f"{unit}^{power} " 
+            [f"{unit}" if power == 1 else f"{unit}^{power}" 
             for unit, power in self.quantity_info.items() if power != 0]
         )
     
