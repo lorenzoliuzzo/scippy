@@ -6,7 +6,7 @@
 
 from .base_quantity import BaseQuantity
 from .unit import Unit
-
+import numpy as np
 import math
 
 
@@ -199,12 +199,108 @@ class Quantity:
     
 
     def __neg__(self):
-        return Quantity(-self.value, self.unit)
+        return self * -1    
     
 
     def __pos__(self):
-        return Quantity(self.value, self.unit)
+        return self
     
+
+    def __inv__(self):
+        return Quantity(1 / self.value, self.unit ** -1)
+    
+
+    def __exp__(self):
+        if self.unit.base == BaseQuantity(0, 0, 0, 0, 0, 0, 0):
+            return Quantity(math.exp(self.value), self.unit)
+        raise TypeError("Unsupported operand for exp: 'Quantity' of base '{}'".format(self.unit.base))
+    
+
+    def __log__(self):
+        if self.unit.base == BaseQuantity(0, 0, 0, 0, 0, 0, 0):
+            return Quantity(math.log(self.value), self.unit)
+        raise TypeError("Unsupported operand for log: 'Quantity' of base '{}'".format(self.unit.base))
+
+
+    def __sin__(self):
+        if self.unit.base == BaseQuantity(0, 0, 0, 0, 0, 0, 0):
+            return Quantity(math.sin(self.value), self.unit)
+        raise TypeError("Unsupported operand for sin: 'Quantity' of base '{}'".format(self.unit.base))
+    
+
+    def __cos__(self):
+        if self.unit.base == BaseQuantity(0, 0, 0, 0, 0, 0, 0):
+            return Quantity(math.cos(self.value), self.unit)
+        raise TypeError("Unsupported operand for cos: 'Quantity' of base '{}'".format(self.unit.base))
+
+
+    def __tan__(self):
+        if self.unit.base == BaseQuantity(0, 0, 0, 0, 0, 0, 0):
+            return Quantity(math.tan(self.value), self.unit)
+        raise TypeError("Unsupported operand for tan: 'Quantity' of base '{}'".format(self.unit.base))
+
+
+    def __asin__(self):
+        if self.unit.base == BaseQuantity(0, 0, 0, 0, 0, 0, 0):
+            return Quantity(math.asin(self.value), self.unit)
+        raise TypeError("Unsupported operand for asin: 'Quantity' of base '{}'".format(self.unit.base))
+
+
+    def __acos__(self):
+        if self.unit.base == BaseQuantity(0, 0, 0, 0, 0, 0, 0):
+            return Quantity(math.acos(self.value), self.unit)
+        raise TypeError("Unsupported operand for acos: 'Quantity' of base '{}'".format(self.unit.base))
+
+
+    def __atan__(self):
+        if self.unit.base == BaseQuantity(0, 0, 0, 0, 0, 0, 0):
+            return Quantity(math.atan(self.value), self.unit)
+        raise TypeError("Unsupported operand for atan: 'Quantity' of base '{}'".format(self.unit.base))
+
+
+    def __sinh__(self):
+        if self.unit.base == BaseQuantity(0, 0, 0, 0, 0, 0, 0):
+            return Quantity(math.sinh(self.value), self.unit)
+        raise TypeError("Unsupported operand for sinh: 'Quantity' of base '{}'".format(self.unit.base))
+    
+
+    def __cosh__(self):
+        if self.unit.base == BaseQuantity(0, 0, 0, 0, 0, 0, 0):
+            return Quantity(math.cosh(self.value), self.unit)
+        raise TypeError("Unsupported operand for cosh: 'Quantity' of base '{}'".format(self.unit.base))
+    
+
+    def __tanh__(self):
+        if self.unit.base == BaseQuantity(0, 0, 0, 0, 0, 0, 0):
+            return Quantity(math.tanh(self.value), self.unit)
+        raise TypeError("Unsupported operand for tanh: 'Quantity' of base '{}'".format(self.unit.base))
+    
+
+    def __asinh__(self):
+        if self.unit.base == BaseQuantity(0, 0, 0, 0, 0, 0, 0):
+            if self.value >= 0:
+                return Quantity(math.log(self.value + math.sqrt(self.value ** 2 + 1)), self.unit)
+            else:
+                return Quantity(math.log(-self.value + math.sqrt(self.value ** 2 + 1)), self.unit)
+        raise TypeError("Unsupported operand for asinh: 'Quantity' of base '{}'".format(self.unit.base))
+
+    def __acosh__(self):
+        if self.unit.base == BaseQuantity(0, 0, 0, 0, 0, 0, 0):
+            if self.value >= 1:
+                return Quantity(math.log(self.value + math.sqrt(self.value ** 2 - 1)), self.unit)
+            else:
+                raise ValueError("math domain error")
+        raise TypeError("Unsupported operand for acosh: 'Quantity' of base '{}'".format(self.unit.base))
+            
+
+    def __atanh__(self):
+        if self.unit.base == BaseQuantity(0, 0, 0, 0, 0, 0, 0):
+            if abs(self.value) < 1:
+                return Quantity(0.5 * math.log((1 + self.value) / (1 - self.value)), self.unit)
+            else:
+                raise ValueError("math domain error")
+        raise TypeError("Unsupported operand for atanh: 'Quantity' of base '{}'".format(self.unit.base))
+   
 
     def __round__(self, n=None):
         return Quantity(round(self.value, n), self.unit)
@@ -271,14 +367,14 @@ class Quantity:
         raise ValueError("Unsupported operands for >=: 'Quantity' and '{}'".format(type(other).__name__))
     
 
-    def __bool__(self):
-        return bool(self.value)
-    
-
     def __int__(self):
-        return int(self.value)
+        return int(self.value * self.unit.prefix.factor)
     
 
     def __float__(self):
-        return float(self.value)
-    
+        return float(self.value * self.unit.prefix.factor)
+
+
+    # convert to array
+    def __array__(self):
+        return np.array(self.value * self.unit.prefix.factor)

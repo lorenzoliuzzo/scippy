@@ -1,4 +1,8 @@
-# file: ./basis.py 
+# @file: tests/basis.py 
+# @auth: Lorenzo Liuzzo
+# @date: 2021-07-21
+# @desc: Test the basis module of the physics package
+
 from physics import BaseQuantity
 from physics import basis as basis
 

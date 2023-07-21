@@ -1,3 +1,8 @@
+# @file: tests/units.py 
+# @auth: Lorenzo Liuzzo
+# @date: 2021-07-21
+# @desc: Test the units module of the physics package
+
 from physics import Prefix, Unit
 from physics import basis as basis
 from physics import units as units

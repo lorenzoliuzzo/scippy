@@ -1,4 +1,6 @@
 import numpy as np
+import math as math
+
 
 # Node in a computation graph.
 class Node(object):
@@ -16,7 +18,6 @@ class Node(object):
         """
         self.name = name
         self.value = value
-        self.grad = None
         self.inputs = []
         self.op = None
         self.const_attr = None
@@ -32,6 +33,26 @@ class Node(object):
         return new_node
     
 
+    def __sub__(self, other):
+        """Subtracting two nodes return a new node."""
+        if isinstance(other, Node):
+            new_node = sub_op(self, other)
+        else:
+            # Subtract by a constant stores the constant in the new node's const_attr field.
+            new_node = sub_byconst_op(self, other)
+        return new_node
+
+
+    def __rsub__(self, other):  
+        """Subtracting a node from a constant return a new node."""
+        if isinstance(other, Node):
+            new_node = sub_op(other, self)
+        else:
+            # Subtract a constant from a node stores the constant in the new node's const_attr field.
+            new_node = add_byconst_op(-self, other)
+        return new_node
+        
+
     def __mul__(self, other):
         """Multiplying two nodes return a new node."""
         if isinstance(other, Node):
@@ -46,6 +67,13 @@ class Node(object):
     __radd__ = __add__
     __rmul__ = __mul__
 
+    def __neg__(self):
+        return Node(f'-{self.name}', -self.value)
+    
+
+    def __pos__(self):
+        return self
+    
 
     def __matmul__(self, other):
         """Matrix multiplying two nodes return a new node."""
@@ -83,18 +111,107 @@ class Node(object):
             # Exponentiate by a constant stores the constant in the new node's const_attr field.
             new_node = pow_byconst_op(self, other)
         return new_node
-
     
-    # Allow left-hand-side exponentiation.
-    __rpow__ = __pow__
+
+    def __square__(self):
+        """Element-wise square function."""
+        return pow_op(self, 2)
+    
+
+    def __sqrt__(self):
+        """Element-wise square root function."""
+        return pow_op(self, 0.5)
+    
+
+    def __neg__(self):
+        """Element-wise negative function."""
+        return neg_op(self)
+    
+    def __abs__(self):
+        """Element-wise absolute function."""
+        return abs_op(self)
 
 
+    def __log__(self):
+        """Element-wise natural logarithm function."""
+        return log_op(self)
+    
+    def __exp__(self):
+        """Element-wise exponential function."""
+        return exp_op(self)
+    
+
+    def __sin__(self):
+        """Element-wise sine function."""
+        return sin_op(self)
+    
+    def __cos__(self):
+        """Element-wise cosine function."""
+        return cos_op(self)
+    
+    def __tan__(self):
+        """Element-wise tangent function."""
+        return tan_op(self)
+
+
+    def __sinh__(self):
+        """Element-wise hyperbolic sine function."""
+        return sinh_op(self)
+    
+    def __cosh__(self):
+        """Element-wise hyperbolic cosine function."""
+        return cosh_op(self)
+    
+    def __tanh__(self):
+        """Element-wise hyperbolic tangent function."""
+        return tanh_op(self)
+
+
+    def __asin__(self):
+        """Element-wise arcsine function."""
+        return asin_op(self)
+
+    def __acos__(self):
+        """Element-wise arccosine function."""
+        return acos_op(self)
+
+    def __atan__(self):
+        """Element-wise arctangent function."""
+        return atan_op(self)
+
+
+    def __asinh__(self):
+        """Element-wise inverse hyperbolic sine function."""
+        return asinh_op(self)
+
+    def __acosh__(self):
+        """Element-wise inverse hyperbolic cosine function."""
+        return acosh_op(self)
+
+    def __atanh__(self):
+        """Element-wise inverse hyperbolic tangent function."""
+        return atanh_op(self)
+    
+        
+    # def __sigmoid__(self):
+    #     """Element-wise sigmoid function."""
+    #     return sigmoid_op(self)
+    
+        
     def __str__(self):
         """Allow print to display node name.""" 
         return f"{self.name} = {self.value}"
 
     __repr__ = __str__
 
+
+    def __getattr__(self, attr):
+        """Intercept calls to undefined attributes (e.g., math functions) and redirect to Op methods."""
+        if hasattr(Op, f"__{attr}__"):
+            op_method = getattr(Op, f"__{attr}__")
+            return op_method(self)
+        raise AttributeError(f"'Node' object has no attribute '{attr}'")
+    
 
 # Op represents operations performed on nodes.
 class Op(object):
@@ -136,6 +253,27 @@ class Op(object):
         raise NotImplementedError
 
 
+# Op to feed value to a nodes.
+class PlaceholderOp(Op):
+
+    def __call__(self):
+        """Creates a variable node."""
+        new_node = Op.__call__(self)        
+        return new_node
+
+    def gradient(self, node, output_grad):
+        """No gradient function since node has no inputs."""
+        return None
+    
+
+def Variable(name, value):
+    # User defined variables in an expression.  
+    placeholder_node = placeholder_op()
+    placeholder_node.name = name
+    placeholder_node.value = value
+    return placeholder_node
+
+
 # Op to element-wise add two nodes.
 class AddOp(Op):
 
@@ -167,6 +305,39 @@ class AddByConstOp(Op):
     def gradient(self, node, output_grad):
         # Given gradient of add node, return gradient contribution to input.
         return [output_grad]
+    
+
+# Op to element-wise sub two nodes.
+class SubOp(Op):
+
+    def __call__(self, node_A, node_B):
+        # Create a new node that is the result of subtracting two input nodes.
+        new_node = Op.__call__(self)
+        new_node.inputs = [node_A, node_B]
+        new_node.name = "(%s-%s)" % (node_A.name, node_B.name)
+        new_node.value = node_A.value - node_B.value
+        return new_node
+
+    def gradient(self, node, output_grad):
+        # Given gradient of sub node, return gradient contributions to each input.
+        return [-output_grad, -output_grad]
+    
+
+# Op to element-wise sub a nodes by a constant.
+class SubByConstOp(Op):
+
+    def __call__(self, node_A, const_val):
+        # Create a new node that is the result of subtracting a node and a constant.
+        new_node = Op.__call__(self)
+        new_node.const_attr = const_val
+        new_node.inputs = [node_A]
+        new_node.name = "(%s-%s)" % (node_A.name, str(const_val))
+        new_node.value = node_A.value - const_val
+        return new_node
+
+    def gradient(self, node, output_grad):
+        # Given gradient of sub node, return gradient contribution to input.
+        return [-output_grad]
     
 
 # Op to element-wise multiply two nodes.
@@ -342,31 +513,266 @@ class PowByConstOp(Op):
         return [grad_A]
 
 
+# Op for element-wise negative function.
+class NegOp(Op):
 
-class PlaceholderOp(Op):
-    """Op to feed value to a nodes."""
-
-    def __call__(self):
-        """Creates a variable node."""
-        new_node = Op.__call__(self)        
+    def __call__(self, node_A):
+        """Creates a node that represents the negative of node_A."""
+        new_node = Op.__call__(self)
+        new_node.inputs = [node_A]
+        new_node.name = "-(%s)" % node_A.name
+        new_node.value = -node_A.value
         return new_node
 
     def gradient(self, node, output_grad):
-        """No gradient function since node has no inputs."""
-        return None
+        """Given gradient of negative node, return gradient contributions to the input node."""
+        return [-output_grad]
     
 
-def Variable(name, value):
-    # User defined variables in an expression.  
-    placeholder_node = placeholder_op()
-    placeholder_node.name = name
-    placeholder_node.value = value
-    return placeholder_node
+# Op for element-wise absolute function.
+class AbsOp(Op):
+
+    def __call__(self, node_A):
+        """Creates a node that represents the absolute value of node_A."""
+        new_node = Op.__call__(self)
+        new_node.inputs = [node_A]
+        new_node.name = "abs(%s)" % node_A.name
+        new_node.value = math.abs(node_A.value)
+        return new_node
+    
+    def gradient(self, node, output_grad):
+        """Given gradient of absolute node, return gradient contributions to the input node."""
+        return [output_grad * math.sign(node.inputs[0].value)]
+    
+
+# Op for element-wise exponential function.
+class ExpOp(Op):
+
+    def __call__(self, node_A):
+        """Creates a node that represents the exponential of node_A."""
+        new_node = Op.__call__(self)
+        new_node.inputs = [node_A]
+        new_node.name = "exp(%s)" % node_A.name
+        new_node.value = math.exp(node_A.value)
+        return new_node
+
+    def gradient(self, node, output_grad):
+        """Given gradient of exponential node, return gradient contributions to the input node."""
+        return [output_grad * math.exp(node.inputs[0].value)]
 
 
+# Op for element-wise natural logarithm function.
+class LogOp(Op):
 
+    def __call__(self, node_A):
+        """Creates a node that represents the natural logarithm of node_A."""
+        new_node = Op.__call__(self)
+        new_node.inputs = [node_A]
+        new_node.name = "log(%s)" % node_A.name
+        new_node.value = math.log(node_A.value)
+        return new_node
+
+    def gradient(self, node, output_grad):
+        """Given gradient of log node, return gradient contributions to the input node."""
+        return [output_grad / node.inputs[0].value]
+
+
+# Op for element-wise sine function.
+class SinOp(Op):
+
+    def __call__(self, node_A):
+        """Creates a node that represents the sine of node_A."""
+        if isinstance(node_A, Node):
+            new_node = Node(f"sin({node_A.name})", math.sin(node_A.value))
+            new_node.inputs = [node_A]
+            new_node.op = SinOp()
+            return new_node
+        else:
+            return math.sin(node_A)
+
+    def gradient(self, node, output_grad):
+        """Given gradient of sine node, return gradient contributions to the input node."""
+        return [output_grad * math.cos(node.inputs[0].value)]
+
+
+# Op for element-wise cosine function.
+class CosOp(Op):
+
+    def __call__(self, node_A):
+        """Creates a node that represents the cosine of node_A."""
+        new_node = Op.__call__(self)
+        new_node.inputs = [node_A]
+        new_node.name = "cos(%s)" % node_A.name
+        new_node.value = math.cos(node_A.value)
+        return new_node
+
+    def gradient(self, node, output_grad):
+        """Given gradient of cosine node, return gradient contributions to the input node."""
+        return [-output_grad * math.sin(node.inputs[0].value)]
+
+
+# Op for element-wise tangent function.
+class TanOp(Op):
+
+    def __call__(self, node_A):
+        """Creates a node that represents the tangent of node_A."""
+        new_node = Op.__call__(self)
+        new_node.inputs = [node_A]
+        new_node.name = "tan(%s)" % node_A.name
+        new_node.value = math.tan(node_A.value)
+        return new_node
+
+    def gradient(self, node, output_grad):
+        """Given gradient of tangent node, return gradient contributions to the input node."""
+        return [output_grad / math.cos(node.inputs[0].value) ** 2]
+
+
+# Op for element-wise hyperbolic sine function.
+class SinhOp(Op):
+
+    def __call__(self, node_A):
+        """Creates a node that represents the hyperbolic sine of node_A."""
+        new_node = Op.__call__(self)
+        new_node.inputs = [node_A]
+        new_node.name = "sinh(%s)" % node_A.name
+        new_node.value = math.sinh(node_A.value)
+        return new_node
+
+    def gradient(self, node, output_grad):
+        """Given gradient of hyperbolic sine node, return gradient contributions to the input node."""
+        return [output_grad * math.cosh(node.inputs[0].value)]
+
+
+# Op for element-wise hyperbolic cosine function.
+class CoshOp(Op):
+
+    def __call__(self, node_A):
+        """Creates a node that represents the hyperbolic cosine of node_A."""
+        new_node = Op.__call__(self)
+        new_node.inputs = [node_A]
+        new_node.name = "cosh(%s)" % node_A.name
+        new_node.value = math.cosh(node_A.value)
+        return new_node
+
+    def gradient(self, node, output_grad):
+        """Given gradient of hyperbolic cosine node, return gradient contributions to the input node."""
+        return [output_grad * math.sinh(node.inputs[0].value)]
+
+
+# Op for element-wise hyperbolic tangent function.
+class TanhOp(Op):
+
+    def __call__(self, node_A):
+        """Creates a node that represents the hyperbolic tangent of node_A."""
+        new_node = Op.__call__(self)
+        new_node.inputs = [node_A]
+        new_node.name = "tanh(%s)" % node_A.name
+        new_node.value = math.tanh(node_A.value)
+        return new_node
+
+    def gradient(self, node, output_grad):
+        """Given gradient of hyperbolic tangent node, return gradient contributions to the input node."""
+        return [output_grad * (1 - math.tanh(node.inputs[0].value) ** 2)]
+
+
+# Op for element-wise arcsine function.
+class AsinOp(Op):
+
+    def __call__(self, node_A):
+        """Creates a node that represents the arcsine of node_A."""
+        new_node = Op.__call__(self)
+        new_node.inputs = [node_A]
+        new_node.name = "asin(%s)" % node_A.name
+        new_node.value = np.arcsin(node_A.value)
+        return new_node
+
+    def gradient(self, node, output_grad):
+        """Given gradient of arcsine node, return gradient contributions to the input node."""
+        return [output_grad / np.sqrt(1 - node.inputs[0].value ** 2)]
+
+
+# Op for element-wise arccosine function.
+class AcosOp(Op):
+
+    def __call__(self, node_A):
+        """Creates a node that represents the arccosine of node_A."""
+        new_node = Op.__call__(self)
+        new_node.inputs = [node_A]
+        new_node.name = "acos(%s)" % node_A.name
+        new_node.value = np.arccos(node_A.value)
+        return new_node
+
+    def gradient(self, node, output_grad):
+        """Given gradient of arccosine node, return gradient contributions to the input node."""
+        return [-output_grad / np.sqrt(1 - node.inputs[0].value ** 2)]
+
+
+# Op for element-wise arctangent function.
+class AtanOp(Op):
+
+    def __call__(self, node_A):
+        """Creates a node that represents the arctangent of node_A."""
+        new_node = Op.__call__(self)
+        new_node.inputs = [node_A]
+        new_node.name = "atan(%s)" % node_A.name
+        new_node.value = np.arctan(node_A.value)
+        return new_node
+
+    def gradient(self, node, output_grad):
+        """Given gradient of arctangent node, return gradient contributions to the input node."""
+        return [output_grad / (1 + node.inputs[0].value ** 2)]
+
+
+# Op for element-wise inverse hyperbolic sine function.
+class AsinhOp(Op):
+
+    def __call__(self, node_A):
+        """Creates a node that represents the inverse hyperbolic sine of node_A."""
+        new_node = Op.__call__(self)
+        new_node.inputs = [node_A]
+        new_node.name = "asinh(%s)" % node_A.name
+        new_node.value = np.arcsinh(node_A.value)
+        return new_node
+
+    def gradient(self, node, output_grad):
+        """Given gradient of inverse hyperbolic sine node, return gradient contributions to the input node."""
+        return [output_grad / np.sqrt(node.inputs[0].value ** 2 + 1)]
+
+
+# Op for element-wise inverse hyperbolic cosine function.
+class AcoshOp(Op):
+
+    def __call__(self, node_A):
+        """Creates a node that represents the inverse hyperbolic cosine of node_A."""
+        new_node = Op.__call__(self)
+        new_node.inputs = [node_A]
+        new_node.name = "acosh(%s)" % node_A.name
+        new_node.value = np.arccosh(node_A.value)
+        return new_node
+
+    def gradient(self, node, output_grad):
+        """Given gradient of inverse hyperbolic cosine node, return gradient contributions to the input node."""
+        return [output_grad / np.sqrt(node.inputs[0].value ** 2 - 1)]
+
+
+# Op for element-wise inverse hyperbolic tangent function.
+class AtanhOp(Op):
+
+    def __call__(self, node_A):
+        """Creates a node that represents the inverse hyperbolic tangent of node_A."""
+        new_node = Op.__call__(self)
+        new_node.inputs = [node_A]
+        new_node.name = "atanh(%s)" % node_A.name
+        new_node.value = np.arctanh(node_A.value)
+        return new_node
+
+    def gradient(self, node, output_grad):
+        """Given gradient of inverse hyperbolic tangent node, return gradient contributions to the input node."""
+        return [output_grad / (1 - node.inputs[0].value ** 2)]
+
+
+# Op that represents a constant np.zeros_like.
 class ZerosLikeOp(Op):
-    """Op that represents a constant np.zeros_like."""
 
     def __call__(self, node_A):
         """Creates a node that represents a np.zeros array of same shape as node_A."""
@@ -380,8 +786,8 @@ class ZerosLikeOp(Op):
         return [zeroslike_op(node.inputs[0])]
 
 
+# Op that represents a constant np.ones_like.
 class OnesLikeOp(Op):
-    """Op that represents a constant np.ones_like."""
 
     def __call__(self, node_A):
         """Creates a node that represents a np.ones array of same shape as node_A."""
@@ -398,127 +804,41 @@ class OnesLikeOp(Op):
 
 # Create global singletons of operators.
 add_op = AddOp()
+sub_op = SubOp()
 mul_op = MulOp()
-add_byconst_op = AddByConstOp()
-mul_byconst_op = MulByConstOp()
 matmul_op = MatMulOp()
-matmul_byconst_op = MatMulByConstOp()
 div_op = DivOp()
-div_byconst_op = DivByConstOp()
 pow_op = PowOp()
+
+add_byconst_op = AddByConstOp()
+sub_byconst_op = SubByConstOp()
+mul_byconst_op = MulByConstOp()
+matmul_byconst_op = MatMulByConstOp()
+div_byconst_op = DivByConstOp()
 pow_byconst_op = PowByConstOp()
+
+neg_op = NegOp()
+abs_op = AbsOp()
+
+exp_op = ExpOp()
+log_op = LogOp()
+
+sin_op = SinOp()
+cos_op = CosOp()
+tan_op = TanOp()
+
+sinh_op = SinhOp()
+cosh_op = CoshOp()
+tanh_op = TanhOp()
+
+asin_op = AsinOp()
+acos_op = AcosOp()
+atan_op = AtanOp()
+
+asinh_op = AsinhOp()
+acosh_op = AcoshOp()
+atanh_op = AtanhOp()
 
 placeholder_op = PlaceholderOp()
 oneslike_op = OnesLikeOp()
 zeroslike_op = ZerosLikeOp()
-
-
-# def gradients(loss_node, nodes):
-#     """Compute gradients of nodes with respect to the loss node using backpropagation.
-
-#     Parameters
-#     ----------
-#     loss_node: Node
-#         The output node (scalar) representing the loss.
-#     nodes: List[Node]
-#         List of input nodes with respect to which the gradients are computed.
-
-#     Returns
-#     -------
-#     gradients: Dict[Node, float]
-#         Dictionary mapping input nodes to their corresponding gradients.
-#     """
-#     # Initialize gradients dictionary with the loss_node's gradient
-#     gradients = {loss_node: 1.0}
-
-#     # Find the topological sort of nodes ending in the loss node
-#     topo_order = find_topo_sort([loss_node])
-
-#     # Perform reverse-mode automatic differentiation (backpropagation)
-#     for node in reversed(topo_order):
-#         # Get the gradient of the current node with respect to its output
-#         node_grad = gradients[node]
-
-#         # Get the gradients of the node with respect to its inputs
-#         input_gradients = node.op.gradient(node, node_grad)
-
-#         # Update gradients for input nodes of the current node
-#         for i, input_node in enumerate(node.inputs):
-#             gradients[input_node] = gradients.get(input_node, 0.0) + input_gradients[i]
-
-#     # Collect gradients for the specified input
-#     input_gradients = {node: gradients.get(node, 0.0) for node in nodes}
-
-#     return input_gradients
-
-def gradients(loss_node, nodes):
-    """Compute gradients of nodes with respect to the loss node using backpropagation.
-
-    Parameters
-    ----------
-    loss_node: Node
-        The output node (scalar) representing the loss.
-    nodes: List[Node]
-        List of input nodes with respect to which the gradients are computed.
-
-    Returns
-    -------
-    gradients: Dict[Node, float]
-        Dictionary mapping input nodes to their corresponding gradients.
-    """
-    # Initialize gradients dictionary with the loss_node's gradient
-    gradients = {loss_node: 1.0}
-
-    # Find the topological sort of nodes ending in the loss node
-    topo_order = find_topo_sort([loss_node])
-
-    # Perform reverse-mode automatic differentiation (backpropagation)
-    for node in reversed(topo_order):
-        # Get the gradient of the current node with respect to its output
-        node_grad = gradients[node]
-
-        # Get the gradients of the node with respect to its inputs
-        input_gradients = node.op.gradient(node, node_grad)
-
-        # Update gradients for input nodes of the current node
-        for i, input_node in enumerate(node.inputs):
-            if gradients.get(input_node) is None:
-                gradients[input_node] = input_gradients[i]
-            else:
-                gradients[input_node] += input_gradients[i]
-
-    # Collect gradients for the specified input
-    input_gradients = {node: gradients.get(node, 0.0) for node in nodes}
-
-    return input_gradients
-
-
-def find_topo_sort(node_list):
-    """Given a list of nodes, return a topological sort list of nodes ending in them.
-    
-    A simple algorithm is to do a post-order DFS traversal on the given nodes, 
-    going backwards based on input edges. Since a node is added to the ordering
-    after all its predecessors are traversed due to post-order DFS, we get a topological
-    sort.
-
-    """
-    visited = set()
-    topo_order = []
-    for node in node_list:
-        topo_sort_dfs(node, visited, topo_order)
-    return topo_order
-
-def topo_sort_dfs(node, visited, topo_order):
-    """Post-order DFS"""
-    if node in visited:
-        return
-    visited.add(node)
-    for n in node.inputs:
-        topo_sort_dfs(n, visited, topo_order)
-    topo_order.append(node)
-
-def sum_node_list(node_list):
-    """Custom sum function in order to avoid create redundant nodes in Python sum implementation."""
-    from operator import add
-    from functools import reduce
-    return reduce(add, node_list)
