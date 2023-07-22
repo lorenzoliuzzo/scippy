@@ -9,17 +9,14 @@ import numpy as np
 class Hamiltonian(object):
     # A class to represent a Hamiltonian function as the Legendre transform of a Lagrangian.
 
-    def __init__(self, bodies=None):
+    def __init__(self):
         """
         Parameters
         ----------
         bodies : list of MaterialPoint, optional
             A list of material points (bodies) that will be part of the Lagrangian. (Default is None)
         """
-        if bodies is None:
-            self.pool = []
-        else:
-            self.pool = [bodies]
+        self.pool = []
 
 
     def add_body(self, body):
@@ -31,7 +28,7 @@ class Hamiltonian(object):
         body : MaterialPoint
             The material point to be added.
         """
-        self.bodies.append(body)
+        self.pool.append(body)
 
 
     def __call__(self, time = Variable('t', Quantity(0, U.s))):

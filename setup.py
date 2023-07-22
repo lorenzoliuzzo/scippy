@@ -8,6 +8,8 @@ src_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'src'))
 # Add 'src' directory to the sys.path
 sys.path.append(src_path)
 
+# Add the path of the 'src' directory to the PYTHONPATH
+PYTHONPATH = os.environ.get('PYTHONPATH', '')
 
 # Define the name of your library
 name = 'scippy'
