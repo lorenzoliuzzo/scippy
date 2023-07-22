@@ -91,11 +91,11 @@ class Quantity:
                 return Quantity(self.value - other.value, self.unit)
             else:
                 return Quantity(self.value - other.value * other.unit.prefix.factor / self.unit.prefix.factor, self.unit)
+        elif isinstance(other, Node):
+            return -other + self
         else:
             raise TypeError(f"Unsupported operands for -: 'Quantity' of base ' {self.unit.base}' and '{type(other).__name__}' of base ' {other.unit.base}'")
-
-    def __rsub__(self, other):
-        return -self.__sub__(other)
+        
     
 
     def __mul__(self, other):

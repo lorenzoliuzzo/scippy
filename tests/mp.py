@@ -1,46 +1,52 @@
 from physics import Quantity, MaterialPoint
 from physics import units as U
-from mathematics import Variable, gradients
-from mathematics.curves import Sphere
+from physics.potentials import Elastic
+from physics import Lagrangian, Hamiltonian
+from mathematics import gradients
 
 import numpy as np
 
-mp = MaterialPoint(Quantity(1, U.kg), Quantity(np.array([1, 0, 0]), U.m), Quantity(np.array([4, 5, 6]), U.m / U.s))
+mp = MaterialPoint('mp', Quantity(np.array([5, 5, 5]), U.m), Quantity(np.array([-2, -2, -2]), U.m / U.s), Quantity(1, U.kg))
+print('\n')
 print(mp)
+print('\n')
 
-print(mp.momentum())
-print(mp.kinetic_energy())
-
-grad = gradients(mp.momentum(), [mp.velocity])
+kinetic_energy = mp.mass * np.dot(mp.velocity, mp.velocity) / 2
+grad = gradients(kinetic_energy, [mp.velocity, mp.momentum])
 print(grad[mp.velocity])
+print(grad[mp.momentum])
 
-grad = gradients(mp.kinetic_energy(), [mp.velocity])
-print(grad[mp.velocity])
+mp2 = MaterialPoint('mp2', Quantity(np.array([5, 5, 5]), U.m), Quantity(np.array([-2, -2, -2]), U.kg * U.m / U.s), Quantity(1, U.kg))
+print('\n')
+print(mp2)
+print('\n')
 
+kinetic_energy = np.dot(mp2.momentum, mp2.momentum) / (2 * mp2.mass)
+grad = gradients(kinetic_energy, [mp2.velocity, mp2.momentum])
+print(grad[mp2.velocity])
+print(grad[mp2.momentum])
 
-sphere = Sphere(Quantity(1, U.m), Quantity(np.array([0, 0, 0]), U.m))
+spring = Elastic(Quantity(30, U.N / U.m), Quantity(1, U.m))
+print(spring(mp.position))
 
-u_var = Variable('theta', Quantity(0, U.rad))
-v_var = Variable('phi', Quantity(0, U.rad))
+grad = gradients(spring(mp.position), [mp.position])
+print(grad[mp.position])
 
-print(u_var)
-print(v_var)
+mp3 = MaterialPoint('mp3', Quantity(np.array([5, 5, 5]), U.m), Quantity(np.array([-2, -2, -2]), U.m / U.s), Quantity(1, U.kg), [spring])
+print('\n')
+print(mp3)
+print('\n')
 
-x, y, z = sphere(u_var, v_var)
-print(x)
-print(y)
-print(z)
+lagr = Lagrangian(mp3)
+lagr_var = lagr()
+grad = gradients(lagr_var, [mp3.position, mp3.velocity])
+print("Lagrangian:", lagr_var)
+print('dL dx: ', grad[mp3.position])
+print('dL dv: ', grad[mp3.velocity])
 
-dx = gradients(x, [u_var, v_var])
-print('dxdtheta ->', dx[u_var])
-print('dxdphi ->', dx[v_var])
-
-dy = gradients(y, [u_var, v_var])
-print('dydtheta ->', dy[u_var])
-print('dydphi ->', dy[v_var])
-
-dz = gradients(z, [u_var, v_var])
-print('dzdtheta ->', dz[u_var])
-print('dzdphi ->', dz[v_var])
-
-# mp.constrain_to_surface(sphere)
+ham = Hamiltonian(mp3)
+ham_var = ham()
+grad = gradients(ham_var, [mp3.position, mp3.momentum])
+print("Hamiltonian:", ham_var)
+print('dH dx: ', grad[mp3.position])
+print('dH dp: ', grad[mp3.momentum])

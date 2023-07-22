@@ -1,4 +1,5 @@
-from physics import Quantity
+from physics import Quantity, Unit, PotentialEnergy
+from physics import basis as bs
 from physics import units as U
 from mathematics import Variable
 # from mathematics.curves import ParametricSurface
@@ -11,9 +12,7 @@ class MaterialPoint:
     A material point in space.
     """
 
-    def __init__(self, mass, 
-                 position : Quantity = Quantity(np.array([0, 0, 0]), U.m),
-                 velocity : Quantity = Quantity(np.array([0, 0, 0]), U.m / U.s)):
+    def __init__(self, name, x, xdot, mass, potentials : PotentialEnergy = []):
         """
         A material point in space.
 
@@ -26,19 +25,44 @@ class MaterialPoint:
         velocity : Quantity (array-like)
             The velocity of the material point (dx/dt, dy/dt, dz/dt).
         """
-        self.mass = mass
-        self.position = Variable('x', position)
-        self.velocity = Variable(r'$\dot{x}$', velocity)
+
+        if x.unit == Unit(bs.length):
+            self.position = Variable('x', x)
+        else:
+            raise ValueError("Invalid unit for position.")
+
+        if xdot.unit == Unit(bs.velocity):
+            self.velocity = Variable('xdot', xdot)
+            self.momentum = Variable('p', mass * self.velocity)
+
+        elif xdot.unit == Unit(bs.momentum):
+            self.momentum = Variable('p', xdot)
+            self.velocity = Variable('xdot', self.momentum / mass)
+
+        else:
+            raise ValueError("Invalid unit for velocity.")
+        
+        if mass.unit == Unit(bs.mass):
+            self.mass = mass
+        else:
+            raise ValueError("Invalid unit for mass.")
+
+        self.name = name
+        self.potentials = potentials
+
 
     def __str__(self):
-        return f"MaterialPoint: mass: {self.mass}, position: {self.position}, velocity: {self.velocity}"
-
-
-    def momentum(self):
-        return self.mass * self.velocity
+        return f"{self.name}: \nmass: {self.mass}, \nposition: {self.position}, \nvelocity: {self.velocity}, \nmomentum: {self.momentum}, \npotential energy: {self.potential_energy()}"
     
-    def kinetic_energy(self):
-        return self.mass * self.velocity**2 / 2
+
+    def potential_energy(self, time = Variable('t', Quantity(0, U.s))):
+        """
+        Evaluate the potential energy of the material point.
+        """
+        potential_energy = Quantity(0, U.J)
+        for potential in self.potentials:
+            potential_energy += potential(self.position, self.velocity, self.momentum, self.mass, time)
+        return potential_energy
     
 
     # def constrain_to_surface(self, surface: ParametricSurface, tolerance: float = 1e-6, max_iterations: int = 100):

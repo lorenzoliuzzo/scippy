@@ -57,4 +57,4 @@ class ParametricSurface:
         if not self.domain_v.contains(v):
             raise ValueError(f"v value {v} is outside the domain [{self.domain_v.start}, {self.domain_v.end}]")
         
-        return np.array([self.x(u, v), self.y(u, v), self.z(u, v)])
+        return self.x(u, v), self.y(u, v), self.z(u, v)

@@ -74,20 +74,19 @@ class Node(object):
     def __sub__(self, other):
         """Subtracting two nodes return a new node."""
         if isinstance(other, Node):
-            new_node = sub_op(self, other)
+            new_node = add_op(self, -other)
         else:
             # Subtract by a constant stores the constant in the new node's const_attr field.
-            new_node = sub_byconst_op(self, other)
+            new_node = add_byconst_op(self, -other)
         return new_node
-
 
     def __rsub__(self, other):  
         """Subtracting a node from a constant return a new node."""
         if isinstance(other, Node):
-            new_node = sub_op(other, self)
+            new_node = add_op(self, -other)
         else:
             # Subtract a constant from a node stores the constant in the new node's const_attr field.
-            new_node = add_byconst_op(-self, other)
+            new_node = add_byconst_op(self, -other)
         return new_node
         
 
@@ -107,7 +106,7 @@ class Node(object):
 
 
     def __neg__(self):
-        return Node(f'-{self.name}', -self.value)
+        return neg_op(self)
     
 
     def __pos__(self):
@@ -196,6 +195,13 @@ class Node(object):
         """Element-wise absolute function."""
         return abs_op(self)
 
+    def __norm__(self):
+        """Element-wise norm function."""
+        return norm_op(self)
+    
+    def __dot__(self, other):
+        """Element-wise dot product function."""
+        return dot_op(self, other)    
 
     def __log__(self):
         """Element-wise natural logarithm function."""
@@ -281,10 +287,12 @@ class Node(object):
     def __hash__(self):
         return id(self)
     
-    
+
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
-        if ufunc in (np.add, np.subtract, np.multiply, np.true_divide, np.power):
+        if ufunc in (np.add, np.subtract, np.multiply, np.true_divide, np.power, np.equal, np.not_equal, np.less, np.less_equal, np.greater, np.greater_equal, np.dot):
             return getattr(self, method)(*inputs, **kwargs)
+        elif ufunc is np.sqrt: 
+            return self.__pow__(1/2)
         elif ufunc is np.sin:
             return self.__sin__()
         elif ufunc is np.cos:
@@ -309,6 +317,8 @@ class Node(object):
             return self.__neg__()
         elif ufunc is np.abs:
             return self.__abs__()
+        elif ufunc is np.linalg.norm:
+            return self.__norm__()
         elif ufunc is np.log:
             return self.__log__()
         elif ufunc is np.exp:
@@ -410,37 +420,37 @@ class AddByConstOp(Op):
         return [output_grad]
     
 
-# Op to element-wise sub two nodes.
-class SubOp(Op):
+# # Op to element-wise sub two nodes.
+# class SubOp(Op):
 
-    def __call__(self, node_A, node_B):
-        # Create a new node that is the result of subtracting two input nodes.
-        new_node = Op.__call__(self)
-        new_node.inputs = [node_A, node_B]
-        new_node.name = "(%s-%s)" % (node_A.name, node_B.name)
-        new_node.value = node_A.value - node_B.value
-        return new_node
+#     def __call__(self, node_A, node_B):
+#         # Create a new node that is the result of subtracting two input nodes.
+#         new_node = Op.__call__(self)
+#         new_node.inputs = [node_A, node_B]
+#         new_node.name = "(%s-%s)" % (node_A.name, node_B.name)
+#         new_node.value = node_A.value - node_B.value
+#         return new_node
 
-    def gradient(self, node, output_grad):
-        # Given gradient of sub node, return gradient contributions to each input.
-        return [-output_grad, -output_grad]
+#     def gradient(self, node, output_grad):
+#         # Given gradient of sub node, return gradient contributions to each input.
+#         return [-output_grad, -output_grad]
     
 
-# Op to element-wise sub a nodes by a constant.
-class SubByConstOp(Op):
+# # Op to element-wise sub a nodes by a constant.
+# class SubByConstOp(Op):
 
-    def __call__(self, node_A, const_val):
-        # Create a new node that is the result of subtracting a node and a constant.
-        new_node = Op.__call__(self)
-        new_node.const_attr = const_val
-        new_node.inputs = [node_A]
-        new_node.name = "(%s-%s)" % (node_A.name, str(const_val))
-        new_node.value = node_A.value - const_val
-        return new_node
+#     def __call__(self, node_A, const_val):
+#         # Create a new node that is the result of subtracting a node and a constant.
+#         new_node = Op.__call__(self)
+#         new_node.const_attr = const_val
+#         new_node.inputs = [node_A]
+#         new_node.name = "(%s-%s)" % (node_A.name, str(const_val))
+#         new_node.value = node_A.value - const_val
+#         return new_node
 
-    def gradient(self, node, output_grad):
-        # Given gradient of sub node, return gradient contribution to input.
-        return [-output_grad]
+#     def gradient(self, node, output_grad):
+#         # Given gradient of sub node, return gradient contribution to input.
+#         return [-output_grad]
     
 
 # Op to element-wise multiply two nodes.
@@ -614,6 +624,75 @@ class PowByConstOp(Op):
         const_val = node.const_attr
         grad_A = output_grad * const_val * A ** (const_val - 1)
         return [grad_A]
+
+# Op to perform element-wise norm of a node.
+class NormOp(Op):
+    def __init__(self, axis=None):
+        self.axis = axis
+
+    def __call__(self, node_A):
+        new_node = Op.__call__(self)
+        new_node.inputs = [node_A]
+        new_node.name = f"norm({node_A.name})"
+        new_node.value = np.linalg.norm(node_A.value, axis=self.axis)
+        return new_node
+    
+    def gradient(self, node, output_grad):
+        """Given gradient of norm node, return gradient contributions to each input."""
+        A = node.inputs[0].value
+        norm = np.linalg.norm(A, axis=self.axis, keepdims=True)
+        return output_grad * A / norm
+    
+
+class DotOp(Op):
+
+    def __call__(self, node_A, node_B):
+        new_node = Op.__call__(self)
+        new_node.inputs = [node_A, node_B]
+        new_node.name = f"dot({node_A.name}, {node_B.name})"
+        new_node.value = np.dot(node_A.value, node_B.value)
+        return new_node
+
+    def gradient(self, node, output_grad):
+        """Given gradient of dot node, return gradient contributions to each input."""
+        A, B = node.inputs[0].value, node.inputs[1].value
+
+        if np.isscalar(A) or np.isscalar(B):
+            return (
+                np.sum(A * output_grad),
+                np.sum(B * output_grad),
+            )
+
+        # If both A and B are 1-D arrays (scalars handled above)
+        if A.ndim == 1 and B.ndim == 1:
+            return (
+                np.sum(output_grad * node.inputs[1].value),
+                np.sum(output_grad * node.inputs[0].value),
+            )
+
+        # If A is 2-D and B is 1-D, perform matrix-vector gradient calculation
+        if A.ndim == 2 and B.ndim == 1:
+            return (
+                np.dot(output_grad, node.inputs[1].value.T),
+                np.dot(node.inputs[0].value.T, output_grad),
+            )
+
+        # If A is 1-D and B is 2-D, perform vector-matrix gradient calculation
+        if A.ndim == 1 and B.ndim == 2:
+            return (
+                np.dot(node.inputs[1].value.T, output_grad),
+                np.dot(output_grad, node.inputs[0].value.T),
+            )
+
+        # If both A and B are 2-D, perform matrix-matrix gradient calculation
+        if A.ndim == 2 and B.ndim == 2:
+            return (
+                np.dot(output_grad, node.inputs[1].value.T),
+                np.dot(node.inputs[0].value.T, output_grad),
+            )
+
+        # For other cases, raise an error
+        raise ValueError("Incompatible shapes for dot product.")
 
 
 # Op to element-wise logical AND two nodes.
@@ -1016,14 +1095,12 @@ class OnesLikeOp(Op):
 
 # Create global singletons of operators.
 add_op = AddOp()
-sub_op = SubOp()
 mul_op = MulOp()
 matmul_op = MatMulOp()
 div_op = DivOp()
 pow_op = PowOp()
 
 add_byconst_op = AddByConstOp()
-sub_byconst_op = SubByConstOp()
 mul_byconst_op = MulByConstOp()
 matmul_byconst_op = MatMulByConstOp()
 div_byconst_op = DivByConstOp()
@@ -1040,6 +1117,8 @@ le_op = LeOp()
 
 neg_op = NegOp()
 abs_op = AbsOp()
+norm_op = NormOp()
+dot_op = DotOp()
 
 exp_op = ExpOp()
 log_op = LogOp()
