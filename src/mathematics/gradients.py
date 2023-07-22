@@ -1,9 +1,10 @@
 from .topology import find_topo_sort
+from .autodiff import Node, NodeDict
 
 def gradients(loss_node, nodes):
     """Compute gradients of nodes with respect to the loss node using backpropagation.
 
-    Parameters
+    Parameters  
     ----------
     loss_node: Node
         The output node (scalar) representing the loss.
@@ -16,7 +17,12 @@ def gradients(loss_node, nodes):
         Dictionary mapping input nodes to their corresponding gradients.
     """
     # Initialize gradients dictionary with the loss_node's gradient
-    gradients = {loss_node: 1.0}
+
+    if not isinstance(loss_node, Node):
+        raise ValueError("loss_node must be a Node object.")
+    
+    gradients = NodeDict()
+    gradients[loss_node] = 1.0
 
     # Find the topological sort of nodes ending in the loss node
     topo_order = find_topo_sort([loss_node])
@@ -31,7 +37,7 @@ def gradients(loss_node, nodes):
 
         # Update gradients for input nodes of the current node
         for i, input_node in enumerate(node.inputs):
-            if gradients.get(input_node) is None:
+            if input_node not in gradients:
                 gradients[input_node] = input_gradients[i]
             else:
                 gradients[input_node] += input_gradients[i]

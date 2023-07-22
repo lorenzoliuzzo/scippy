@@ -9,6 +9,7 @@ from .. import basis
 
 
 # SI base quantities as units
+dimensionless = Unit(basis.scalar)
 m = Unit(basis.length)
 s = Unit(basis.time)
 kg = Unit(basis.mass)

@@ -2,6 +2,44 @@ import numpy as np
 import math as math
 
 
+class NodeDict(dict):
+    def __getitem__(self, key):
+        if isinstance(key, Node):
+            return super().__getitem__(key)
+        for k in self:
+            if k == key:
+                return super().__getitem__(k)
+        raise KeyError(key)
+
+    def __setitem__(self, key, value):
+        if isinstance(key, Node):
+            super().__setitem__(key, value)
+        else:
+            for k in self:
+                if k == key:
+                    super().__setitem__(k, value)
+                    return
+            raise KeyError(key)
+
+    def __contains__(self, key):
+        if isinstance(key, Node):
+            return super().__contains__(key)
+        for k in self:
+            if k == key:
+                return True
+        return False
+
+    def __delitem__(self, key):
+        if isinstance(key, Node):
+            super().__delitem__(key)
+        else:
+            for k in list(self):
+                if k == key:
+                    super().__delitem__(k)
+                    return
+            raise KeyError(key)
+
+
 # Node in a computation graph.
 class Node(object):
 
@@ -67,6 +105,7 @@ class Node(object):
     __radd__ = __add__
     __rmul__ = __mul__
 
+
     def __neg__(self):
         return Node(f'-{self.name}', -self.value)
     
@@ -116,6 +155,32 @@ class Node(object):
     def __square__(self):
         """Element-wise square function."""
         return pow_op(self, 2)
+    
+
+    # Logical operators
+    def __eq__(self, other):
+        """Element-wise equality comparison."""
+        return equal_op(self, other)
+
+    def __ne__(self, other):
+        """Element-wise inequality comparison."""
+        return not_equal_op(self, other)
+
+    def __lt__(self, other):
+        """Element-wise less-than comparison."""
+        return less_op(self, other)
+
+    def __le__(self, other):
+        """Element-wise less-than-or-equal-to comparison."""
+        return less_equal_op(self, other)
+
+    def __gt__(self, other):
+        """Element-wise greater-than comparison."""
+        return greater_op(self, other)
+
+    def __ge__(self, other):
+        """Element-wise greater-than-or-equal-to comparison."""
+        return greater_equal_op(self, other)
     
 
     def __sqrt__(self):
@@ -211,6 +276,44 @@ class Node(object):
             op_method = getattr(Op, f"__{attr}__")
             return op_method(self)
         raise AttributeError(f"'Node' object has no attribute '{attr}'")
+    
+
+    def __hash__(self):
+        return id(self)
+    
+    
+    def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
+        if ufunc in (np.add, np.subtract, np.multiply, np.true_divide, np.power):
+            return getattr(self, method)(*inputs, **kwargs)
+        elif ufunc is np.sin:
+            return self.__sin__()
+        elif ufunc is np.cos:
+            return self.__cos__()
+        elif ufunc is np.tan:
+            return self.__tan__()
+        elif ufunc is np.arcsin:
+            return self.__asin__()
+        elif ufunc is np.arccos:
+            return self.__acos__()
+        elif ufunc is np.arctan:
+            return self.__atan__()
+        elif ufunc is np.arcsinh:
+            return self.__asinh__()
+        elif ufunc is np.arccosh:
+            return self.__acosh__()
+        elif ufunc is np.arctanh:
+            return self.__atanh__()
+        elif ufunc is np.sqrt:
+            return self.__sqrt__()
+        elif ufunc is np.negative:
+            return self.__neg__()
+        elif ufunc is np.abs:
+            return self.__abs__()
+        elif ufunc is np.log:
+            return self.__log__()
+        elif ufunc is np.exp:
+            return self.__exp__()
+        return NotImplemented
     
 
 # Op represents operations performed on nodes.
@@ -511,6 +614,115 @@ class PowByConstOp(Op):
         const_val = node.const_attr
         grad_A = output_grad * const_val * A ** (const_val - 1)
         return [grad_A]
+
+
+# Op to element-wise logical AND two nodes.
+class AndOp(Op):
+    def __call__(self, node_A, node_B):
+        new_node = Op.__call__(self)
+        new_node.inputs = [node_A, node_B]
+        new_node.name = "(%s and %s)" % (node_A.name, node_B.name)
+        new_node.value = node_A.value and node_B.value
+        return new_node
+
+    def gradient(self, node, output_grad):
+        # Logical AND is not differentiable, so return None for both inputs.
+        return None, None
+
+
+# Op to element-wise logical OR two nodes.
+class OrOp(Op):
+    def __call__(self, node_A, node_B):
+        new_node = Op.__call__(self)
+        new_node.inputs = [node_A, node_B]
+        new_node.name = "(%s or %s)" % (node_A.name, node_B.name)
+        new_node.value = node_A.value or node_B.value
+        return new_node
+
+    def gradient(self, node, output_grad):
+        # Logical OR is not differentiable, so return None for both inputs.
+        return None, None
+
+
+# Op to element-wise logical NOT a node.
+class NotOp(Op):
+    def __call__(self, node_A):
+        new_node = Op.__call__(self)
+        new_node.inputs = [node_A]
+        new_node.name = "not %s" % node_A.name
+        new_node.value = not node_A.value
+        return new_node
+
+    def gradient(self, node, output_grad):
+        # Logical NOT is not differentiable, so return None for the input.
+        return None
+
+
+# Op to element-wise logical greater-than-or-equal-to comparison of two nodes.
+class EqOp(Op):
+    def __call__(self, node_A, node_B):
+        new_node = Node(f"({node_A.name}=={node_B.name})", np.array_equal(node_A.value, node_B.value))
+        new_node.inputs = [node_A, node_B]
+        return new_node
+
+    def gradient(self, node, output_grad):
+        # Logical >= is not differentiable, so return None for both inputs.
+        return None, None
+
+# Op to element-wise logical greater-than comparison of two nodes.
+class GtOp(Op):
+    def __call__(self, node_A, node_B):
+        new_node = Op.__call__(self)
+        new_node.inputs = [node_A, node_B]
+        new_node.name = "(%s > %s)" % (node_A.name, node_B.name)
+        new_node.value = node_A.value > node_B.value
+        return new_node
+
+    def gradient(self, node, output_grad):
+        # Logical > is not differentiable, so return None for both inputs.
+        return None, None
+
+
+# Op to element-wise logical less-than comparison of two nodes.
+class LtOp(Op):
+    def __call__(self, node_A, node_B):
+        new_node = Op.__call__(self)
+        new_node.inputs = [node_A, node_B]
+        new_node.name = "(%s < %s)" % (node_A.name, node_B.name)
+        new_node.value = node_A.value < node_B.value
+        return new_node
+
+    def gradient(self, node, output_grad):
+        # Logical < is not differentiable, so return None for both inputs.
+        return None, None
+
+
+# Op to element-wise logical greater-than-or-equal-to comparison of two nodes.
+class GeOp(Op):
+    def __call__(self, node_A, node_B):
+        new_node = Op.__call__(self)
+        new_node.inputs = [node_A, node_B]
+        new_node.name = "(%s >= %s)" % (node_A.name, node_B.name)
+        new_node.value = node_A.value >= node_B.value
+        return new_node
+
+    def gradient(self, node, output_grad):
+        # Logical >= is not differentiable, so return None for both inputs.
+        return None, None
+
+
+# Op to element-wise logical less-than-or-equal-to comparison of two nodes.
+class LeOp(Op):
+    def __call__(self, node_A, node_B):
+        new_node = Op.__call__(self)
+        new_node.inputs = [node_A, node_B]
+        new_node.name = "(%s <= %s)" % (node_A.name, node_B.name)
+        new_node.value = node_A.value <= node_B.value
+        return new_node
+
+    def gradient(self, node, output_grad):
+        # Logical <= is not differentiable, so return None for both inputs.
+        return None, None
 
 
 # Op for element-wise negative function.
@@ -816,6 +1028,15 @@ mul_byconst_op = MulByConstOp()
 matmul_byconst_op = MatMulByConstOp()
 div_byconst_op = DivByConstOp()
 pow_byconst_op = PowByConstOp()
+
+equal_op = EqOp()
+and_op = AndOp()
+or_op = OrOp()
+not_op = NotOp()
+gt_op = GtOp()
+lt_op = LtOp()
+ge_op = GeOp()
+le_op = LeOp()
 
 neg_op = NegOp()
 abs_op = AbsOp()

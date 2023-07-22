@@ -1,20 +1,23 @@
 # file    scipp/physics/measurements/Quantity.py
 # @author  Lorenzo Liuzzo (lorenzoliuzzo@outlook.com)
 # @brief   This file contains the implementation of the Quantity class.
-# @date    2023-07-20
+# @date    2023-07-22
 # @copyright Copyright (c) 2023
 
-from .base_quantity import BaseQuantity
 from .unit import Unit
+from .basis import scalar, angle
+from .units import dimensionless, rad
+
+from mathematics import Node
+
 import numpy as np
-import math
 
 
 class Quantity:
     # Class representing a physical quantity with a numerical value and a specific unit.
 
 
-    def __init__(self, value, unit: Unit = Unit(BaseQuantity(0, 0, 0, 0, 0, 0, 0))):
+    def __init__(self, value, unit: Unit = dimensionless):
         """
         Construct a Quantity object with a given numerical value and an associated Unit.
 
@@ -39,22 +42,33 @@ class Quantity:
         :return: A new Quantity object representing the result of the addition.
         :raises ValueError: If the operands have incompatible units.
         """
+
         if isinstance(other, (int, float)):
-            if self.unit.base == BaseQuantity(0, 0, 0, 0, 0, 0, 0):
-                return Quantity(self.value + other, self.unit)
+            return Quantity(self.value + other, self.unit)
+
+        elif isinstance(other, Quantity):
+            if self.unit.base == other.unit.base:
+                if self.unit.prefix == other.unit.prefix:
+                    return Quantity(self.value + other.value, self.unit)
+                else:
+                    return Quantity(self.value + other.value * other.unit.prefix.factor / self.unit.prefix.factor, self.unit)
             else:
-                raise TypeError(f"Unsupported operands for +: 'Quantity' of base ' {self.unit.base}' and '{type(other).__name__}'")
-        
-        if isinstance(other, Quantity) and self.unit.base == other.unit.base:
-            if self.unit.prefix == other.unit.prefix:
+                raise TypeError(f"Unsupported operands for +: 'Quantity' of base '{self.unit.base}' and '{other.unit.base}'")
+                
+        elif isinstance(other, np.ndarray):
+            if isinstance(other.dtype, Quantity):
                 return Quantity(self.value + other.value, self.unit)
             else:
-                return Quantity(self.value + other.value * other.unit.prefix.factor / self.unit.prefix.factor, self.unit)
-        else:
-            raise TypeError(f"Unsupported operands for +: 'Quantity' of base ' {self.unit.base}' and '{type(other).__name__}' of base ' {other.unit.base}'")
-
+                return Quantity(self.value + other, self.unit)
+            
+        elif isinstance(other, Node):
+            return other + self
+            
+        raise ValueError("Unsupported operands for +: 'Quantity' and '{}'".format(type(other).__name__))
+    
 
     __radd__ = __add__
+
     
 
     def __sub__(self, other):
@@ -67,7 +81,7 @@ class Quantity:
         :raises ValueError: If the operands have incompatible units.
         """
         if isinstance(other, (int, float)):
-            if self.unit.base == BaseQuantity(0, 0, 0, 0, 0, 0, 0):
+            if self.unit.base == scalar:
                 return Quantity(self.value - other, self.unit)
             else:
                 raise TypeError(f"Unsupported operands for -: 'Quantity' of base ' {self.unit.base}' and '{type(other).__name__}'")
@@ -98,8 +112,18 @@ class Quantity:
         elif isinstance(other, (int, float)):
             return Quantity(self.value * other, self.unit)
 
+        elif isinstance(other, np.ndarray):
+            if isinstance(other.dtype, Quantity):
+                return self * [Quantity(val, unit) for val, unit in other]
+            else:
+                return Quantity(self.value * other, self.unit)
+            
+        elif isinstance(other, Node):
+            return other * self
+            
         raise ValueError("Unsupported operands for *: 'Quantity' and '{}'".format(type(other).__name__))
     
+
     def __rmul__(self, other):
         return self.__mul__(other)
     
@@ -120,6 +144,7 @@ class Quantity:
 
         raise ValueError("Unsupported operands for /: 'Quantity' and '{}'".format(type(other).__name__))     
     
+
     def __rtruediv__(self, other):
 
         if isinstance(other, (int, float)):
@@ -195,7 +220,7 @@ class Quantity:
     
 
     def __abs__(self):
-        return Quantity(abs(self.value), self.unit)
+        return Quantity(np.abs(self.value), self.unit)
     
 
     def __neg__(self):
@@ -211,92 +236,120 @@ class Quantity:
     
 
     def __exp__(self):
-        if self.unit.base == BaseQuantity(0, 0, 0, 0, 0, 0, 0):
-            return Quantity(math.exp(self.value), self.unit)
+        if self.unit.base == scalar:
+            return Quantity(np.exp(self.value), dimensionless)
         raise TypeError("Unsupported operand for exp: 'Quantity' of base '{}'".format(self.unit.base))
     
 
     def __log__(self):
-        if self.unit.base == BaseQuantity(0, 0, 0, 0, 0, 0, 0):
-            return Quantity(math.log(self.value), self.unit)
+        if self.unit.base == scalar:
+            return Quantity(np.log(self.value), dimensionless)
         raise TypeError("Unsupported operand for log: 'Quantity' of base '{}'".format(self.unit.base))
 
 
     def __sin__(self):
-        if self.unit.base == BaseQuantity(0, 0, 0, 0, 0, 0, 0):
-            return Quantity(math.sin(self.value), self.unit)
-        raise TypeError("Unsupported operand for sin: 'Quantity' of base '{}'".format(self.unit.base))
+        if self.unit.base == angle:
+            return Quantity(np.sin(self.value), dimensionless)
+        
+        else:        
+            raise TypeError("Unsupported operand for sin: 'Quantity' of base '{}'".format(self.unit.base))
     
 
     def __cos__(self):
-        if self.unit.base == BaseQuantity(0, 0, 0, 0, 0, 0, 0):
-            return Quantity(math.cos(self.value), self.unit)
-        raise TypeError("Unsupported operand for cos: 'Quantity' of base '{}'".format(self.unit.base))
-
+        if self.unit.base == angle:
+            return Quantity(np.cos(self.value), dimensionless)
+        
+        else:        
+            raise TypeError("Unsupported operand for sin: 'Quantity' of base '{}'".format(self.unit.base))
+    
 
     def __tan__(self):
-        if self.unit.base == BaseQuantity(0, 0, 0, 0, 0, 0, 0):
-            return Quantity(math.tan(self.value), self.unit)
+        if self.unit.base == angle:
+            return Quantity(np.tan(self.value), dimensionless)
         raise TypeError("Unsupported operand for tan: 'Quantity' of base '{}'".format(self.unit.base))
 
 
     def __asin__(self):
-        if self.unit.base == BaseQuantity(0, 0, 0, 0, 0, 0, 0):
-            return Quantity(math.asin(self.value), self.unit)
-        raise TypeError("Unsupported operand for asin: 'Quantity' of base '{}'".format(self.unit.base))
+        if self.unit.base == scalar:
+            if np.isscalar(self.value):  # For scalar values
+                if -1 <= self.value <= 1:  # Check if the value is within the valid range for arcsin
+                    return Quantity(np.arcsin(self.value), rad)
+                else:
+                    raise ValueError("math domain error: arcsin argument out of range [-1, 1]")
+            
+            else:  # For array values
+                valid_range = np.logical_and(-1 <= self.value, self.value <= 1)
+                if valid_range.all():  # Check if all elements are within the valid range
+                    return Quantity(np.arcsin(self.value), rad)
+                else:
+                    raise ValueError("math domain error: arcsin argument out of range [-1, 1]")
+                
+        raise TypeError("Unsupported operand for arcsin: 'Quantity' of base '{}'".format(self.unit.base))
 
 
     def __acos__(self):
-        if self.unit.base == BaseQuantity(0, 0, 0, 0, 0, 0, 0):
-            return Quantity(math.acos(self.value), self.unit)
-        raise TypeError("Unsupported operand for acos: 'Quantity' of base '{}'".format(self.unit.base))
+        if self.unit.base == scalar:
+            if np.isscalar(self.value):  # For scalar values
+                if -1 <= self.value <= 1:  # Check if the value is within the valid range for arcsin
+                    return Quantity(np.arccos(self.value), rad)
+                else:
+                    raise ValueError("math domain error: arccos argument out of range [-1, 1]")
+            
+            else:  # For array values
+                valid_range = np.logical_and(-1 <= self.value, self.value <= 1)
+                if valid_range.all():  # Check if all elements are within the valid range
+                    return Quantity(np.arccos(self.value), rad)
+                else:
+                    raise ValueError("math domain error: arccos argument out of range [-1, 1]")
+                
+        raise TypeError("Unsupported operand for arccos: 'Quantity' of base '{}'".format(self.unit.base))
 
 
     def __atan__(self):
-        if self.unit.base == BaseQuantity(0, 0, 0, 0, 0, 0, 0):
-            return Quantity(math.atan(self.value), self.unit)
+        if self.unit.base == scalar:
+            return Quantity(np.arctan(self.value), rad)
         raise TypeError("Unsupported operand for atan: 'Quantity' of base '{}'".format(self.unit.base))
 
 
     def __sinh__(self):
-        if self.unit.base == BaseQuantity(0, 0, 0, 0, 0, 0, 0):
-            return Quantity(math.sinh(self.value), self.unit)
+        if self.unit.base == angle:
+            return Quantity(np.sinh(self.value), dimensionless)
         raise TypeError("Unsupported operand for sinh: 'Quantity' of base '{}'".format(self.unit.base))
     
 
     def __cosh__(self):
-        if self.unit.base == BaseQuantity(0, 0, 0, 0, 0, 0, 0):
-            return Quantity(math.cosh(self.value), self.unit)
+        if self.unit.base == angle:
+            return Quantity(np.cosh(self.value), dimensionless)
         raise TypeError("Unsupported operand for cosh: 'Quantity' of base '{}'".format(self.unit.base))
     
 
     def __tanh__(self):
-        if self.unit.base == BaseQuantity(0, 0, 0, 0, 0, 0, 0):
-            return Quantity(math.tanh(self.value), self.unit)
+        if self.unit.base == angle:
+            return Quantity(np.tanh(self.value), dimensionless)
         raise TypeError("Unsupported operand for tanh: 'Quantity' of base '{}'".format(self.unit.base))
     
 
     def __asinh__(self):
-        if self.unit.base == BaseQuantity(0, 0, 0, 0, 0, 0, 0):
+        if self.unit.base == dimensionless:
             if self.value >= 0:
-                return Quantity(math.log(self.value + math.sqrt(self.value ** 2 + 1)), self.unit)
+                return Quantity(np.log(self.value + np.sqrt(self.value ** 2 + 1)), rad)
             else:
-                return Quantity(math.log(-self.value + math.sqrt(self.value ** 2 + 1)), self.unit)
+                return Quantity(np.log(-self.value + np.sqrt(self.value ** 2 + 1)), rad)
         raise TypeError("Unsupported operand for asinh: 'Quantity' of base '{}'".format(self.unit.base))
 
     def __acosh__(self):
-        if self.unit.base == BaseQuantity(0, 0, 0, 0, 0, 0, 0):
+        if self.unit.base == dimensionless:
             if self.value >= 1:
-                return Quantity(math.log(self.value + math.sqrt(self.value ** 2 - 1)), self.unit)
+                return Quantity(np.log(self.value + np.sqrt(self.value ** 2 - 1)), rad)
             else:
                 raise ValueError("math domain error")
         raise TypeError("Unsupported operand for acosh: 'Quantity' of base '{}'".format(self.unit.base))
             
 
     def __atanh__(self):
-        if self.unit.base == BaseQuantity(0, 0, 0, 0, 0, 0, 0):
+        if self.unit.base == dimensionless:
             if abs(self.value) < 1:
-                return Quantity(0.5 * math.log((1 + self.value) / (1 - self.value)), self.unit)
+                return Quantity(0.5 * np.log((1 + self.value) / (1 - self.value)), rad)
             else:
                 raise ValueError("math domain error")
         raise TypeError("Unsupported operand for atanh: 'Quantity' of base '{}'".format(self.unit.base))
@@ -307,15 +360,15 @@ class Quantity:
     
 
     def __floor__(self):
-        return Quantity(math.floor(self.value), self.unit)
+        return Quantity(np.floor(self.value), self.unit)
     
 
     def __ceil__(self):
-        return Quantity(math.ceil(self.value), self.unit)
+        return Quantity(np.ceil(self.value), self.unit)
     
 
     def __trunc__(self):
-        return Quantity(math.trunc(self.value), self.unit)
+        return Quantity(np.trunc(self.value), self.unit)
     
 
     def __eq__(self, other):
@@ -374,7 +427,40 @@ class Quantity:
     def __float__(self):
         return float(self.value * self.unit.prefix.factor)
 
+    # Implement the __array_ufunc__ method for compatibility with NumPy
+    def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
+        if ufunc in (np.add, np.subtract, np.multiply, np.true_divide, np.power, np.floor_divide, np.mod):
+            return getattr(self, method)(*inputs, **kwargs)
+        elif ufunc is np.sin:
+            return self.__sin__()
+        elif ufunc is np.cos:
+            return self.__cos__()
+        elif ufunc is np.tan:
+            return self.__tan__()
+        elif ufunc is np.arcsin:
+            return self.__asin__()
+        elif ufunc is np.arccos:
+            return self.__acos__()
+        elif ufunc is np.arctan:
+            return self.__atan__()
+        elif ufunc is np.arcsinh:
+            return self.__asinh__()
+        elif ufunc is np.arccosh:
+            return self.__acosh__()
+        elif ufunc is np.arctanh:
+            return self.__atanh__()
+        return NotImplemented
+    
 
-    # convert to array
-    def __array__(self):
-        return np.array(self.value * self.unit.prefix.factor)
+    def __array_finalize__(self, obj):
+        if obj is None:
+            return
+        self.unit = getattr(obj, 'unit', None)
+
+
+    def __getitem__(self, key):
+        if np.isscalar(self.value):
+            return self.value
+        elif isinstance(self.value, np.ndarray):
+            return Quantity(self.value[key], self.unit)
+        raise TypeError("Unsupported operand for []: 'Quantity' of base '{}'".format(self.unit.base))
